@@ -6,6 +6,11 @@ output "role_id" {
   value = proxmox_virtual_environment_role.this.role_id
 }
 
+output "group_id" {
+  description = "Add human operator users to this group (via their user resources' `groups`) to grant them the same tenant scope as CI."
+  value       = proxmox_virtual_environment_group.this.group_id
+}
+
 output "ci_user_id" {
   value = var.create_token ? proxmox_virtual_environment_user.ci[0].user_id : null
 }

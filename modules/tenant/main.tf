@@ -36,12 +36,21 @@ resource "proxmox_virtual_environment_role" "this" {
   ]
 }
 
+# All tenant permissions are granted to this group. Members: the CI user
+# below, plus any human operator users (added via their user resources'
+# `groups` attribute — e.g. tenant ops who get scoped web UI access).
+resource "proxmox_virtual_environment_group" "this" {
+  group_id = var.name
+  comment  = var.comment != "" ? var.comment : "Tenant ${var.name}"
+}
+
 resource "proxmox_virtual_environment_user" "ci" {
   count = var.create_token ? 1 : 0
 
   user_id = "tofu-${var.name}@pve"
   comment = "CI deploy user for tenant ${var.name} (token auth only)"
   enabled = true
+  groups  = [proxmox_virtual_environment_group.this.group_id]
 }
 
 resource "proxmox_user_token" "ci" {
@@ -57,30 +66,28 @@ resource "proxmox_user_token" "ci" {
 
 # Pool: full tenant role.
 resource "proxmox_acl" "pool" {
-  count = var.create_token ? 1 : 0
-
   path      = "/pool/${var.name}"
   role_id   = proxmox_virtual_environment_role.this.role_id
-  user_id   = proxmox_virtual_environment_user.ci[0].user_id
+  group_id  = proxmox_virtual_environment_group.this.group_id
   propagate = true
 }
 
 # Allowed VNets: attaching NICs requires SDN.Use on the vnet path.
 resource "proxmox_acl" "vnet" {
-  for_each = var.create_token ? toset(var.vnets) : []
+  for_each = toset(var.vnets)
 
   path      = "/sdn/zones/${var.sdn_zone}/${each.value}"
   role_id   = proxmox_virtual_environment_role.this.role_id
-  user_id   = proxmox_virtual_environment_user.ci[0].user_id
+  group_id  = proxmox_virtual_environment_group.this.group_id
   propagate = true
 }
 
 # Allowed datastores: disk + cloud-init volume allocation.
 resource "proxmox_acl" "datastore" {
-  for_each = var.create_token ? toset(var.datastores) : []
+  for_each = toset(var.datastores)
 
   path      = "/storage/${each.value}"
   role_id   = proxmox_virtual_environment_role.this.role_id
-  user_id   = proxmox_virtual_environment_user.ci[0].user_id
+  group_id  = proxmox_virtual_environment_group.this.group_id
   propagate = true
 }
