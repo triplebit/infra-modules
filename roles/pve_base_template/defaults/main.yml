@@ -1,0 +1,30 @@
+---
+# Imports an official cloud image as a PRISTINE base template on a PVE node:
+# download + checksum-verify + qm create/import + template. Deliberately NO
+# image modification of any kind — all customization happens in Packer's
+# provisioning step (booted VM, real Ansible), which clones this base.
+#
+# The only thing stamped on besides hardware config is the cloud-init
+# user/sshkeys defaults, so Packer's build clone is reachable over SSH.
+
+pve_base_template_suite: trixie
+pve_base_template_file: debian-13-genericcloud-amd64.qcow2
+pve_base_template_url_base: "https://cloud.debian.org/images/cloud/{{ pve_base_template_suite }}/latest"
+
+pve_base_template_vmid: 9012
+pve_base_template_name: debian-13-base
+pve_base_template_storage: cephrbd
+pve_base_template_bridge: vmbr0 # cosmetic — Packer sets the build bridge
+pve_base_template_cores: 2
+pve_base_template_memory: 2048
+
+# cloud-init defaults inherited by Packer's build clone (and anything else
+# that clones the base directly). Site playbook must set the key(s).
+pve_base_template_ciuser: ""
+pve_base_template_sshkeys: []
+
+# Set true (-e pve_base_template_rebuild=true) to destroy + re-import (e.g.
+# monthly image refresh). qm refuses if linked clones exist.
+pve_base_template_rebuild: false
+
+pve_base_template_workdir: /var/tmp/base-images

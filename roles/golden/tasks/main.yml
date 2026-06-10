@@ -1,0 +1,20 @@
+---
+- name: Update apt cache and apply all pending updates
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: dist
+
+- name: Install baseline packages
+  ansible.builtin.apt:
+    name: "{{ ['qemu-guest-agent'] + golden_packages }}"
+    state: present
+
+- name: Keep SSH host keys stable across cloud-init instance-id changes
+  ansible.builtin.copy:
+    content: |
+      # Host keys are generated once on a clone's first boot and must
+      # survive later instance-id changes (PVE regenerates the id when the
+      # cloud-init config is edited).
+      ssh_deletekeys: false
+    dest: /etc/cloud/cloud.cfg.d/99-keep-host-keys.cfg
+    mode: "0644"

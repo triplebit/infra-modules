@@ -1,0 +1,8 @@
+---
+# Baseline content baked into golden images by Packer's Ansible provisioner.
+# This role runs against the BOOTED build VM — it is ordinary Ansible and
+# can later be applied at runtime to the existing (imported) fleet too;
+# baking is just pre-application for new clones.
+
+# Extra packages a site/image variant wants preinstalled.
+golden_packages: []

@@ -1,0 +1,66 @@
+---
+- name: Check whether template VMID already exists
+  ansible.builtin.command: "qm status {{ pve_base_template_vmid }}"
+  register: pve_base_template_existing
+  failed_when: false
+  changed_when: false
+
+- name: Skip — base template exists and rebuild not requested
+  ansible.builtin.meta: end_host
+  when:
+    - pve_base_template_existing.rc == 0
+    - not pve_base_template_rebuild | bool
+
+- name: Create work directory
+  ansible.builtin.file:
+    path: "{{ pve_base_template_workdir }}"
+    state: directory
+    mode: "0755"
+
+- name: Download cloud image (verified against published SHA512SUMS)
+  ansible.builtin.get_url:
+    url: "{{ pve_base_template_url_base }}/{{ pve_base_template_file }}"
+    dest: "{{ pve_base_template_workdir }}/{{ pve_base_template_file }}"
+    checksum: "sha512:{{ pve_base_template_url_base }}/SHA512SUMS"
+    mode: "0644"
+
+- name: Write cloud-init SSH keys file
+  ansible.builtin.copy:
+    content: "{{ pve_base_template_sshkeys | join('\n') }}\n"
+    dest: "{{ pve_base_template_workdir }}/{{ pve_base_template_name }}-sshkeys.pub"
+    mode: "0644"
+  when: pve_base_template_sshkeys | length > 0
+
+- name: Destroy previous template (rebuild; refuses if linked clones exist)
+  ansible.builtin.command: "qm destroy {{ pve_base_template_vmid }} --purge"
+  when: pve_base_template_existing.rc == 0
+
+- name: Create template VM (q35/OVMF, matching fleet conventions; pristine disk import)
+  ansible.builtin.command: >-
+    qm create {{ pve_base_template_vmid }}
+    --name {{ pve_base_template_name }}
+    --machine q35 --bios ovmf --ostype l26
+    --cpu x86-64-v2-AES
+    --cores {{ pve_base_template_cores }} --memory {{ pve_base_template_memory }}
+    --scsihw virtio-scsi-single
+    --net0 virtio,bridge={{ pve_base_template_bridge }}
+    --serial0 socket --vga serial0
+    --agent enabled=1,fstrim_cloned_disks=1
+    --efidisk0 {{ pve_base_template_storage }}:1,efitype=4m,pre-enrolled-keys=0
+    --scsi0 {{ pve_base_template_storage }}:0,import-from={{ pve_base_template_workdir }}/{{ pve_base_template_file }},discard=on,iothread=1
+    --ide2 {{ pve_base_template_storage }}:cloudinit
+    --boot order=scsi0
+
+- name: Set cloud-init user
+  ansible.builtin.command: >-
+    qm set {{ pve_base_template_vmid }} --ciuser {{ pve_base_template_ciuser }}
+  when: pve_base_template_ciuser | length > 0
+
+- name: Set cloud-init SSH keys
+  ansible.builtin.command: >-
+    qm set {{ pve_base_template_vmid }}
+    --sshkeys {{ pve_base_template_workdir }}/{{ pve_base_template_name }}-sshkeys.pub
+  when: pve_base_template_sshkeys | length > 0
+
+- name: Convert to template
+  ansible.builtin.command: "qm template {{ pve_base_template_vmid }}"
