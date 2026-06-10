@@ -25,7 +25,8 @@ resource "proxmox_virtual_environment_role" "this" {
     "VM.Config.Options",
     "VM.Console",
     "VM.Migrate",
-    "VM.Monitor",
+    # NB: VM.Monitor existed through PVE 8 but was removed in PVE 9 —
+    # including it makes role creation fail with "invalid privilege".
     "VM.PowerMgmt",
     "VM.Snapshot",
     "VM.Snapshot.Rollback",
