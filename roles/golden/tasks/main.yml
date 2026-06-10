@@ -18,3 +18,11 @@
       ssh_deletekeys: false
     dest: /etc/cloud/cloud.cfg.d/99-keep-host-keys.cfg
     mode: "0644"
+
+- name: SSH authentication is keys-only (no passwords, ever)
+  ansible.builtin.copy:
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+    dest: /etc/ssh/sshd_config.d/50-keys-only.conf
+    mode: "0644"

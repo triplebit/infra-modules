@@ -1,0 +1,14 @@
+---
+# Team operator accounts: SSH-key-only authentication (password login is
+# disabled fleet-wide by the golden image), locked Linux passwords,
+# NOPASSWD sudo. Accounts are managed EXCLUSIVELY from the members list —
+# authorized_keys files are fully owned by this role.
+
+# list of {username, name, ssh_keys: [...]}
+users_members: []
+
+# usernames to remove (offboarding)
+users_absent: []
+
+users_shell: /bin/bash
+users_sudoers_file: /etc/sudoers.d/50-team

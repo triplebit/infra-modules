@@ -1,0 +1,55 @@
+---
+- name: Create team accounts (locked password — SSH keys only)
+  ansible.builtin.user:
+    name: "{{ item.username }}"
+    comment: "{{ item.name | default(item.username) }}"
+    shell: "{{ users_shell }}"
+    password_lock: true
+    state: present
+  loop: "{{ users_members }}"
+  loop_control:
+    label: "{{ item.username }}"
+
+- name: Ensure .ssh directories
+  ansible.builtin.file:
+    path: "/home/{{ item.username }}/.ssh"
+    state: directory
+    owner: "{{ item.username }}"
+    group: "{{ item.username }}"
+    mode: "0700"
+  loop: "{{ users_members }}"
+  loop_control:
+    label: "{{ item.username }}"
+
+- name: Authorized keys (file fully owned by this role)
+  ansible.builtin.copy:
+    content: |
+      {% for key in item.ssh_keys %}
+      {{ key }}
+      {% endfor %}
+    dest: "/home/{{ item.username }}/.ssh/authorized_keys"
+    owner: "{{ item.username }}"
+    group: "{{ item.username }}"
+    mode: "0600"
+  loop: "{{ users_members }}"
+  loop_control:
+    label: "{{ item.username }}"
+
+- name: Sudoers (NOPASSWD — SSH keys are the sole auth factor)
+  ansible.builtin.copy:
+    content: |
+      {% for member in users_members %}
+      {{ member.username }} ALL=(ALL) NOPASSWD:ALL
+      {% endfor %}
+    dest: "{{ users_sudoers_file }}"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: visudo -cf %s
+
+- name: Remove offboarded accounts
+  ansible.builtin.user:
+    name: "{{ item }}"
+    state: absent
+    remove: true
+  loop: "{{ users_absent }}"

@@ -94,9 +94,9 @@ variable "datastore" {
 }
 
 variable "ci_user" {
-  description = "cloud-init user account."
+  description = "cloud-init user account (the bootstrap/operator user; team members are added post-install via Ansible)."
   type        = string
-  default     = "debian"
+  default     = "jonah"
 }
 
 variable "ssh_keys" {
