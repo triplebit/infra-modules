@@ -27,12 +27,19 @@ resource "proxmox_virtual_environment_role" "this" {
     "VM.Migrate",
     # NB: VM.Monitor existed through PVE 8 but was removed in PVE 9 —
     # including it makes role creation fail with "invalid privilege".
+    # PVE 9 instead has granular guest-agent privileges; the provider needs
+    # the read-only one to poll agent-reported network interfaces.
+    "VM.GuestAgent.Audit",
     "VM.PowerMgmt",
     "VM.Snapshot",
     "VM.Snapshot.Rollback",
     "Datastore.Audit",
     "Datastore.AllocateSpace",
     "SDN.Use",
+    # Scoped by the ACL to the tenant's own pool: lets the tenant manage
+    # membership of (and create VMs into) their pool, nothing more.
+    "Pool.Allocate",
+    "Pool.Audit",
   ]
 }
 
