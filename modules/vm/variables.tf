@@ -93,6 +93,12 @@ variable "datastore" {
   type        = string
 }
 
+variable "template_node" {
+  description = "Node holding the template's configuration (e.g. the site's image-build node). Leave null when the template lives on var.node."
+  type        = string
+  default     = null
+}
+
 variable "ci_user" {
   description = "cloud-init user account (the bootstrap/operator user; team members are added post-install via Ansible)."
   type        = string

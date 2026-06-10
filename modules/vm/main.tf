@@ -22,7 +22,10 @@ resource "proxmox_virtual_environment_vm" "this" {
 
   clone {
     vm_id = var.template_vmid
-    full  = true
+    # The clone API call must target the node OWNING the template's config;
+    # PVE then places the new VM on var.node (shared storage required).
+    node_name = var.template_node
+    full      = true
   }
 
   agent {
