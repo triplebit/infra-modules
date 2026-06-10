@@ -98,3 +98,22 @@ resource "proxmox_acl" "datastore" {
   group_id  = proxmox_virtual_environment_group.this.group_id
   propagate = true
 }
+
+# Shared templates live outside tenant pools; cloning one needs VM.Clone on
+# the template itself. This grants clone+read ONLY — the tenant cannot
+# modify or delete the template.
+resource "proxmox_virtual_environment_role" "templates" {
+  count = length(var.template_vmids) > 0 ? 1 : 0
+
+  role_id    = "tenant-${var.name}-templates"
+  privileges = ["VM.Clone", "VM.Audit"]
+}
+
+resource "proxmox_acl" "template" {
+  for_each = toset([for v in var.template_vmids : tostring(v)])
+
+  path      = "/vms/${each.value}"
+  role_id   = proxmox_virtual_environment_role.templates[0].role_id
+  group_id  = proxmox_virtual_environment_group.this.group_id
+  propagate = false
+}

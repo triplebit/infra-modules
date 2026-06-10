@@ -37,3 +37,9 @@ variable "create_token" {
   type        = bool
   default     = true
 }
+
+variable "template_vmids" {
+  description = "Shared template VMIDs this tenant may clone (grants VM.Clone+VM.Audit on each, nothing more)."
+  type        = list(number)
+  default     = []
+}

@@ -1,0 +1,12 @@
+---
+# Extra Caddy modules installed via `caddy add-package`,
+# e.g. github.com/caddy-dns/cloudflare
+caddy_packages: []
+
+# Controller-side path to the Caddyfile to deploy (required).
+caddy_caddyfile: ""
+
+# KEY: value pairs written to /etc/caddy/caddy.env (root:root 0600) and
+# loaded into the service via a systemd override — for {$VARS} in the
+# Caddyfile. Values should come from SOPS, never plaintext in git.
+caddy_env: {}
