@@ -26,6 +26,24 @@
     state: present
     update_cache: true
 
+# Without this, the default json-file driver grows container logs UNBOUNDED
+# (a bundled caddy once reached 90G in 3 months). The 'local' driver rotates
+# by default; limits made explicit anyway. Applies to newly created
+# containers only — recreate existing ones to adopt it.
+- name: Docker daemon configuration (bounded container logs)
+  ansible.builtin.copy:
+    content: |
+      {
+        "log-driver": "local",
+        "log-opts": {
+          "max-size": "20m",
+          "max-file": "5"
+        }
+      }
+    dest: /etc/docker/daemon.json
+    mode: "0644"
+  notify: Restart docker
+
 - name: Docker enabled and running
   ansible.builtin.systemd:
     name: docker
