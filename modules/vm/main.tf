@@ -122,4 +122,11 @@ resource "proxmox_virtual_environment_vm" "this" {
   operating_system {
     type = "l26"
   }
+
+  lifecycle {
+    # Power state and placement are operational, not configuration: node
+    # determines initial placement only; afterwards HA/maintenance moves are
+    # never reverted, and VMs are never started/stopped on apply.
+    ignore_changes = [started, node_name]
+  }
 }
