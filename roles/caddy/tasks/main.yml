@@ -63,6 +63,13 @@
   when: (item | basename) not in caddy_modules.stdout
   notify: Restart caddy
 
+# Absorb unit/env/binary changes BEFORE touching the Caddyfile: the reload
+# handler keeps the running process, which can never pick up a new
+# EnvironmentFile — only a restart can. Flushing here means a later
+# Caddyfile failure can't strand the service on a stale unit/environment.
+- name: Apply pending service changes
+  ansible.builtin.meta: flush_handlers
+
 - name: Deploy Caddyfile
   ansible.builtin.copy:
     src: "{{ caddy_caddyfile }}"
