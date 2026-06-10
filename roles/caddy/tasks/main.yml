@@ -70,7 +70,10 @@
     owner: root
     group: caddy
     mode: "0640"
-    validate: caddy validate --adapter caddyfile --config %s
+    # validate provisions modules (not just parse), and e.g. the cloudflare
+    # DNS plugin rejects an empty token — source the same env file the
+    # service runs with (deployed earlier in this role).
+    validate: /bin/bash -c 'set -a; [ -f /etc/caddy/caddy.env ] && . /etc/caddy/caddy.env; exec caddy validate --adapter caddyfile --config %s'
   notify: Reload caddy
 
 - name: Caddy enabled and running
