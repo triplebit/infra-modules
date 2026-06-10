@@ -1,0 +1,14 @@
+---
+# Docker Engine from the official Docker apt repository (distro packages
+# lag), plus the compose plugin. Shared baseline for container-hosting VMs.
+
+docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+
+# Users added to the docker group (membership = root-equivalent on the
+# host; keep this to operator accounts only).
+docker_group_members: []
