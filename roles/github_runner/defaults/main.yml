@@ -4,18 +4,36 @@
 # GitHub: ephemeral for any looped/self-managed setup; JIT keeps the
 # registration stateless and pins labels/group server-side at mint time.
 #
-# THREAT MODEL (single-tenant ephemeral runner; reviewed 2026-06):
+# THREAT MODEL (single-tenant runner; reviewed + adversarially re-reviewed
+# 2026-06). This runner serves the PRIVATE triplebit/infra repo only.
+#   - Registration is REPO-LEVEL: structurally usable only by one repo, so
+#     other org repos can't grab a runner holding the deploy creds.
 #   - A job that gets code-exec already holds the deploy creds in
 #     runner.env (PVE token, Garage keys, state passphrase, plan age
-#     identity) — that IS the credentials-on-runner model. Plans are
-#     site-scoped + short-retention; acceptable ONLY while single-tenant.
-#     Revisit everything here if a runner ever serves >1 trust domain.
+#     identity) — that IS the credentials-on-runner model. Acceptable ONLY
+#     because the repo is private + trusted-contributor. Plans flow to the
+#     workflow gated to main; PR code runs only on hosted runners.
+#   - Binaries are binary-EPHEMERAL per job: pristine root-owned _dist is
+#     re-laid-down to the live dir before every job (redeploy-runner.sh),
+#     so tampering can't persist job-to-job. The live dir must stay
+#     runner-writable (JIT writes .runner/.credentials there at startup),
+#     which is why this is per-job redeploy, not a read-only tree.
 #   - The GitHub App key is NOT job-reachable (root-only app.pem, root
-#     mint stage). JIT blob passed via env (not argv) so it's not in
-#     world-readable /proc/cmdline and not inherited by job children.
-#   - Pushing app.pem/runner.env changes restarts the service and so
-#     KILLS any in-flight job (Restart=always). Expected; push at quiet
-#     times. No docker on the runner => no docker-socket escape surface.
+#     ExecStartPre stages). JIT blob passed via env (not argv) so it's not
+#     in world-readable /proc/cmdline and not inherited by job children.
+#   - Pushing app.pem/runner.env changes restarts the service and so KILLS
+#     any in-flight job (Restart=always). Expected; push at quiet times.
+#     No docker on the runner => no docker-socket escape surface.
+#
+# PUBLIC-REPO RUNNER (privacyguides/infra — NOT yet built) HARD GATES,
+# beyond everything above, before it may serve public PRs:
+#   - A genuinely fresh/discarded VM per job (per-job redeploy is NOT
+#     enough when untrusted PR code can run). No standing deploy creds in
+#     runner.env — mint per-job, least-privilege.
+#   - "Require approval for ALL external contributors" + workflow_dispatch/
+#     PR code never reaches it unapproved.
+#   - Plan output redaction (no full diff to public summaries/issues) —
+#     already applied in the PG workflows.
 #
 # Credential model (everything lives on the HOST, never in GitHub):
 #   /etc/github-runner/app.pem    — GitHub App private key, root:root 0600.
@@ -29,11 +47,26 @@
 
 github_runner_version: "2.335.1"
 github_runner_sha256: "4ef2f25285f0ae4477f1fe1e346db76d2f3ebf03824e2ddd1973a2819bf6c8cf"
+# Binaries live PRISTINE + root-owned in _dist; the live _dir is wiped and
+# re-laid-down from _dist before every job (ExecStartPre), so a job that
+# tampers with run.sh/bin during its run cannot persist into the next job.
+# (A JIT runner writes .runner/.credentials into _dir at startup, so _dir
+# itself must be runner-writable — hence the per-job redeploy rather than a
+# read-only tree, which would break startup.) This is binary-ephemerality
+# short of a full per-job VM; the PUBLIC-repo runner still needs a real
+# fresh VM per job (see THREAT MODEL).
+github_runner_dist_dir: /opt/actions-runner-dist
 github_runner_dir: /opt/actions-runner
 github_runner_user: runner
 
+# Registration is REPO-LEVEL (github_runner_org/github_runner_repo): the
+# runner is structurally usable only by that one repo. On the free plan,
+# org Default-group runners are reachable by every private repo in the org
+# and restricted runner groups need Team — so repo-level is both simpler
+# and the tighter blast radius. GitHub App permission: repo Administration
+# (write), installed on that repo only.
+#
 # Runtime parameters written into runner.env by the provisioning play:
-#   GITHUB_ORG          — org the runner registers to (org-level runners)
-#   RUNNER_LABELS       — complete label set, e.g. self-hosted,linux,x64,ridgeview
-#   RUNNER_GROUP_ID     — org runner group id (1 = default group)
+#   GITHUB_ORG / GITHUB_REPO — the repo the runner registers to
 #   GITHUB_APP_CLIENT_ID
+#   RUNNER_LABELS            — complete set, e.g. self-hosted,linux,x64,ridgeview

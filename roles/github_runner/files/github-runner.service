@@ -12,9 +12,11 @@ RuntimeDirectory=github-runner
 RuntimeDirectoryMode=0750
 # Job-facing deploy credentials (by design — credentials-on-runner model)
 EnvironmentFile=/etc/github-runner/runner.env
-# Root stages: wipe per-job state, then mint a fresh single-use JIT config
-# (the GitHub App key is readable only by this root stage, never by jobs)
-ExecStartPre=+/bin/rm -rf /opt/actions-runner/_work /opt/actions-runner/_diag
+# Root stages, in order: lay down pristine binaries (defeats cross-job
+# tampering), then mint a fresh single-use JIT config (the GitHub App key
+# is readable only by these root stages, never by jobs). The redeploy also
+# clears _work/_diag since it recreates the whole live dir from dist.
+ExecStartPre=+/usr/local/bin/redeploy-runner.sh
 ExecStartPre=+/usr/local/bin/mint-jit.sh
 # Pass the JIT blob via env, NOT argv: argv is world-readable in
 # /proc/<pid>/cmdline + ps. The runner reads ACTIONS_RUNNER_INPUT_JITCONFIG,
