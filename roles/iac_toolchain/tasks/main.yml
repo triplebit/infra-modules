@@ -1,0 +1,36 @@
+---
+- name: Base packages (ansible, age, helpers)
+  ansible.builtin.apt:
+    name: [ansible, age, curl, git, jq, unzip, ca-certificates]
+    state: present
+    update_cache: true
+
+- name: Check for OpenTofu
+  ansible.builtin.command: tofu --version
+  register: iac_toolchain_tofu
+  failed_when: false
+  changed_when: false
+
+- name: Install OpenTofu (official installer, deb method)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o /tmp/install-opentofu.sh
+    chmod +x /tmp/install-opentofu.sh
+    /tmp/install-opentofu.sh --install-method deb
+    rm /tmp/install-opentofu.sh
+  args:
+    executable: /bin/bash
+  when: iac_toolchain_tofu.rc != 0
+
+- name: Check for sops
+  ansible.builtin.command: sops --version
+  register: iac_toolchain_sops
+  failed_when: false
+  changed_when: false
+
+- name: Install sops (pinned release deb)
+  ansible.builtin.apt:
+    deb: "https://github.com/getsops/sops/releases/download/v{{ iac_toolchain_sops_version }}/sops_{{ iac_toolchain_sops_version }}_amd64.deb"
+  when: >-
+    iac_toolchain_sops.rc != 0 or
+    iac_toolchain_sops_version not in (iac_toolchain_sops.stdout | default(''))

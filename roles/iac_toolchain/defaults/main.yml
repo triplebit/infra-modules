@@ -1,0 +1,7 @@
+---
+# The IaC toolchain a CI runner (or any operator host) needs to execute
+# the repos' workflows: OpenTofu, Ansible, sops, age. Mirrors the
+# devcontainer Dockerfile so CI runs in the same environment as laptop
+# runs.
+
+iac_toolchain_sops_version: "3.13.1"

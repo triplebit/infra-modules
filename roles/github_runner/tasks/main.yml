@@ -1,0 +1,90 @@
+---
+- name: Runner prerequisites
+  ansible.builtin.apt:
+    name: [curl, jq, openssl, libicu76, liblttng-ust1, libkrb5-3, zlib1g, libssl3]
+    state: present
+    update_cache: true
+
+- name: Runner user (unprivileged, no sudo — everything it can read, jobs can read)
+  ansible.builtin.user:
+    name: "{{ github_runner_user }}"
+    home: "/home/{{ github_runner_user }}"
+    shell: /usr/sbin/nologin
+    password_lock: true
+
+- name: Runner directory
+  ansible.builtin.file:
+    path: "{{ github_runner_dir }}"
+    state: directory
+    owner: "{{ github_runner_user }}"
+    group: "{{ github_runner_user }}"
+    mode: "0755"
+
+- name: Download actions-runner (checksum-pinned)
+  ansible.builtin.get_url:
+    url: "https://github.com/actions/runner/releases/download/v{{ github_runner_version }}/actions-runner-linux-x64-{{ github_runner_version }}.tar.gz"
+    dest: "/tmp/actions-runner-{{ github_runner_version }}.tar.gz"
+    checksum: "sha256:{{ github_runner_sha256 }}"
+    mode: "0644"
+
+- name: Unpack runner
+  ansible.builtin.unarchive:
+    src: "/tmp/actions-runner-{{ github_runner_version }}.tar.gz"
+    dest: "{{ github_runner_dir }}"
+    remote_src: true
+    owner: "{{ github_runner_user }}"
+    group: "{{ github_runner_user }}"
+    creates: "{{ github_runner_dir }}/run.sh"
+
+- name: Config directory (root-owned; holds the App key + job-facing env)
+  ansible.builtin.file:
+    path: /etc/github-runner
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: GitHub App private key (root-only — out of job reach)
+  ansible.builtin.copy:
+    content: "{{ github_runner_app_key }}"
+    dest: /etc/github-runner/app.pem
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Restart github-runner
+
+- name: Runner environment (minting params + job-facing deploy credentials)
+  ansible.builtin.template:
+    src: runner.env.j2
+    dest: /etc/github-runner/runner.env
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Restart github-runner
+
+- name: JIT mint script (runs as root via ExecStartPre=+)
+  ansible.builtin.copy:
+    src: mint-jit.sh
+    dest: /usr/local/bin/mint-jit.sh
+    owner: root
+    group: root
+    mode: "0700"
+  notify: Restart github-runner
+
+- name: Runner service unit
+  ansible.builtin.copy:
+    src: github-runner.service
+    dest: /etc/systemd/system/github-runner.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart github-runner
+
+- name: Runner enabled and running
+  ansible.builtin.systemd:
+    name: github-runner
+    enabled: true
+    state: started
+    daemon_reload: true

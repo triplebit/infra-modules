@@ -9,8 +9,9 @@ variable "node" {
 }
 
 variable "pool_id" {
-  description = "Resource pool (tenant boundary). Required: every VM belongs to a tenant pool."
+  description = "Resource pool (tenant boundary). Tenant VMs must set this; core platform VMs (e.g. CI runners) may omit it."
   type        = string
+  default     = null
 }
 
 variable "tags" {
