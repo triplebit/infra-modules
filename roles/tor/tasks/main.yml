@@ -1,0 +1,42 @@
+---
+- name: Prerequisites
+  ansible.builtin.apt:
+    name: [apt-transport-https, gnupg]
+    state: present
+    update_cache: true
+
+- name: Tor Project signing key
+  ansible.builtin.get_url:
+    url: https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc
+    dest: /etc/apt/keyrings/deb.torproject.org.asc
+    mode: "0644"
+
+- name: Tor Project apt repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/etc/apt/keyrings/deb.torproject.org.asc]
+      https://deb.torproject.org/torproject.org {{ ansible_distribution_release }} main
+    filename: torproject
+    state: present
+
+- name: Install tor
+  ansible.builtin.apt:
+    name: [tor, deb.torproject.org-keyring]
+    state: present
+    update_cache: true
+
+- name: Deploy torrc
+  ansible.builtin.copy:
+    src: "{{ tor_torrc }}"
+    dest: /etc/tor/torrc
+    owner: root
+    group: root
+    mode: "0644"
+    validate: tor -f %s --verify-config
+  notify: Reload tor
+
+- name: Tor enabled and running
+  ansible.builtin.systemd:
+    name: tor@default
+    enabled: true
+    state: started

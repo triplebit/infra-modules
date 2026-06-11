@@ -1,0 +1,5 @@
+---
+- name: Reload tor
+  ansible.builtin.systemd:
+    name: tor@default
+    state: reloaded

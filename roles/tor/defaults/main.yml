@@ -1,0 +1,9 @@
+---
+# Tor daemon from the Tor Project apt repository (distro packages lag),
+# with a deployed torrc. Config mechanics only — service-specific torrc
+# content (and onion service keys, which NEVER touch a repo) belong to the
+# consumer. Onion service key dirs under /var/lib/tor are runtime state:
+# migrated host-to-host, owned debian-tor:debian-tor mode 0700.
+
+# Path to the torrc file/template in the calling playbook's scope.
+tor_torrc: torrc
