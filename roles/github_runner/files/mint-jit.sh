@@ -22,6 +22,13 @@ set -a
 . /etc/github-runner/mint.env
 set +a
 
+# Never leave a stale/empty jit for run.sh to trip over ("Not configured"):
+# remove up front, write only after every API call demonstrably succeeded.
+# -sS keeps curl quiet on success but PRINTS errors to stderr (-> journal);
+# a bare `-sf ... | jq > $OUT` once failed silently AND left an empty file.
+rm -f "$OUT"
+fail() { echo "mint-jit: $1" >&2; exit 1; }
+
 b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
 
 now=$(date +%s)
@@ -30,18 +37,22 @@ pld=$(printf '{"iat":%d,"exp":%d,"iss":"%s"}' $((now - 60)) $((now + 600)) "$GIT
 sig=$(printf '%s.%s' "$hdr" "$pld" | openssl dgst -sha256 -sign "$KEY" -binary | b64url)
 jwt="$hdr.$pld.$sig"
 
-inst=$(curl -sf -H "Authorization: Bearer $jwt" -H "Accept: application/vnd.github+json" \
-  "https://api.github.com/repos/$GITHUB_ORG/$GITHUB_REPO/installation" | jq -r .id)
+inst=$(curl -sSf -H "Authorization: Bearer $jwt" -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/$GITHUB_ORG/$GITHUB_REPO/installation" | jq -r '.id // empty')
+[ -n "$inst" ] || fail "no installation covering $GITHUB_ORG/$GITHUB_REPO (App not installed on the repo, or no repo access granted?)"
 
-token=$(curl -sf -X POST -H "Authorization: Bearer $jwt" -H "Accept: application/vnd.github+json" \
-  "https://api.github.com/app/installations/$inst/access_tokens" | jq -r .token)
+token=$(curl -sSf -X POST -H "Authorization: Bearer $jwt" -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/app/installations/$inst/access_tokens" | jq -r '.token // empty')
+[ -n "$token" ] || fail "could not mint installation token (private key / Client ID mismatch?)"
 
 labels=$(printf '%s' "$RUNNER_LABELS" | jq -R 'split(",")')
 # runner_group_id is still a required field at the repo level; 1 = default.
-curl -sf -X POST -H "Authorization: Bearer $token" -H "Accept: application/vnd.github+json" \
+jit=$(curl -sSf -X POST -H "Authorization: Bearer $token" -H "Accept: application/vnd.github+json" \
   "https://api.github.com/repos/$GITHUB_ORG/$GITHUB_REPO/actions/runners/generate-jitconfig" \
   -d "{\"name\":\"$(hostname)-$(date +%s)\",\"runner_group_id\":1,\"labels\":$labels}" \
-  | jq -r .encoded_jit_config > "$OUT"
+  | jq -r '.encoded_jit_config // empty')
+[ -n "$jit" ] || fail "generate-jitconfig returned no config (App missing repo Administration:write, or the permission update not yet approved on the installation?)"
 
+printf '%s' "$jit" > "$OUT"
 chown root:runner "$OUT"
 chmod 0640 "$OUT"
