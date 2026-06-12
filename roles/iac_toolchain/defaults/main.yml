@@ -13,3 +13,7 @@ iac_toolchain_sops_sha256: "620a9d7e3352ababeca6908cea24a6e8b14ce89a448ddbd3f94f
 # devcontainer pins.
 iac_toolchain_age_version: "1.3.1"
 iac_toolchain_age_sha256: "bdc69c09cbdd6cf8b1f333d372a1f58247b3a33146406333e30c0f26e8f51377"
+
+# gh CLI (drift issue reporting) — not packaged by Debian, pinned release.
+iac_toolchain_gh_version: "2.94.0"
+iac_toolchain_gh_sha256: "d4504b534417965f833a59b40a36e0138b24528658d721df15c5e8a14e51a944"

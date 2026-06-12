@@ -5,6 +5,31 @@
     state: present
     update_cache: true
 
+- name: Check for gh
+  ansible.builtin.command: gh --version
+  register: iac_toolchain_gh
+  failed_when: false
+  changed_when: false
+
+# gh is NOT in Debian's repos (GitHub self-distributes); pinned release deb.
+# The drift workflow's issue reporting uses the gh CLI on the runner.
+- name: Download gh (checksum-pinned release deb)
+  ansible.builtin.get_url:
+    url: "https://github.com/cli/cli/releases/download/v{{ iac_toolchain_gh_version }}/gh_{{ iac_toolchain_gh_version }}_linux_amd64.deb"
+    dest: "/tmp/gh_{{ iac_toolchain_gh_version }}.deb"
+    checksum: "sha256:{{ iac_toolchain_gh_sha256 }}"
+    mode: "0644"
+  when: >-
+    iac_toolchain_gh.rc != 0 or
+    iac_toolchain_gh_version not in (iac_toolchain_gh.stdout | default(''))
+
+- name: Install gh
+  ansible.builtin.apt:
+    deb: "/tmp/gh_{{ iac_toolchain_gh_version }}.deb"
+  when: >-
+    iac_toolchain_gh.rc != 0 or
+    iac_toolchain_gh_version not in (iac_toolchain_gh.stdout | default(''))
+
 - name: Debian-packaged age absent (pre-1.3, no native post-quantum)
   ansible.builtin.apt:
     name: age
