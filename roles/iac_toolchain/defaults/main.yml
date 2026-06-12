@@ -6,3 +6,10 @@
 
 iac_toolchain_sops_version: "3.13.1"
 iac_toolchain_sops_sha256: "620a9d7e3352ababeca6908cea24a6e8b14ce89a448ddbd3f94f1ef3398f470a"
+
+# Upstream release, NOT Debian apt: the fleet uses post-quantum (age1pq1)
+# recipients, native in age >= 1.3 — trixie's packaged age is older and
+# tries to exec a nonexistent age-plugin-pq instead. Same version the
+# devcontainer pins.
+iac_toolchain_age_version: "1.3.1"
+iac_toolchain_age_sha256: "bdc69c09cbdd6cf8b1f333d372a1f58247b3a33146406333e30c0f26e8f51377"

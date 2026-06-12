@@ -1,9 +1,52 @@
 ---
-- name: Base packages (ansible, age, helpers)
+- name: Base packages (ansible + helpers; age comes from upstream below)
   ansible.builtin.apt:
-    name: [ansible, age, curl, git, jq, unzip, ca-certificates, apt-transport-https, gnupg]
+    name: [ansible, curl, git, jq, unzip, ca-certificates, apt-transport-https, gnupg]
     state: present
     update_cache: true
+
+- name: Debian-packaged age absent (pre-1.3, no native post-quantum)
+  ansible.builtin.apt:
+    name: age
+    state: absent
+
+- name: Check for age
+  ansible.builtin.command: age --version
+  register: iac_toolchain_age
+  failed_when: false
+  changed_when: false
+
+- name: Download age (checksum-pinned upstream release)
+  ansible.builtin.get_url:
+    url: "https://github.com/FiloSottile/age/releases/download/v{{ iac_toolchain_age_version }}/age-v{{ iac_toolchain_age_version }}-linux-amd64.tar.gz"
+    dest: "/tmp/age-{{ iac_toolchain_age_version }}.tar.gz"
+    checksum: "sha256:{{ iac_toolchain_age_sha256 }}"
+    mode: "0644"
+  when: >-
+    iac_toolchain_age.rc != 0 or
+    iac_toolchain_age_version not in (iac_toolchain_age.stdout | default(''))
+
+- name: Unpack age
+  ansible.builtin.unarchive:
+    src: "/tmp/age-{{ iac_toolchain_age_version }}.tar.gz"
+    dest: /tmp
+    remote_src: true
+  when: >-
+    iac_toolchain_age.rc != 0 or
+    iac_toolchain_age_version not in (iac_toolchain_age.stdout | default(''))
+
+- name: Install age + age-keygen
+  ansible.builtin.copy:
+    src: "/tmp/age/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+  loop: [age, age-keygen]
+  when: >-
+    iac_toolchain_age.rc != 0 or
+    iac_toolchain_age_version not in (iac_toolchain_age.stdout | default(''))
 
 - name: Check for OpenTofu
   ansible.builtin.command: tofu --version
