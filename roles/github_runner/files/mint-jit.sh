@@ -38,11 +38,13 @@ sig=$(printf '%s.%s' "$hdr" "$pld" | openssl dgst -sha256 -sign "$KEY" -binary |
 jwt="$hdr.$pld.$sig"
 
 inst=$(curl -sSf -H "Authorization: Bearer $jwt" -H "Accept: application/vnd.github+json" \
-  "https://api.github.com/repos/$GITHUB_ORG/$GITHUB_REPO/installation" | jq -r '.id // empty')
+  "https://api.github.com/repos/$GITHUB_ORG/$GITHUB_REPO/installation" | jq -r '.id // empty') \
+  || fail "installation lookup failed (HTTP error above)"
 [ -n "$inst" ] || fail "no installation covering $GITHUB_ORG/$GITHUB_REPO (App not installed on the repo, or no repo access granted?)"
 
 token=$(curl -sSf -X POST -H "Authorization: Bearer $jwt" -H "Accept: application/vnd.github+json" \
-  "https://api.github.com/app/installations/$inst/access_tokens" | jq -r '.token // empty')
+  "https://api.github.com/app/installations/$inst/access_tokens" | jq -r '.token // empty') \
+  || fail "installation-token mint failed (HTTP error above; private key / Client ID mismatch?)"
 [ -n "$token" ] || fail "could not mint installation token (private key / Client ID mismatch?)"
 
 labels=$(printf '%s' "$RUNNER_LABELS" | jq -R 'split(",")')
@@ -50,7 +52,8 @@ labels=$(printf '%s' "$RUNNER_LABELS" | jq -R 'split(",")')
 jit=$(curl -sSf -X POST -H "Authorization: Bearer $token" -H "Accept: application/vnd.github+json" \
   "https://api.github.com/repos/$GITHUB_ORG/$GITHUB_REPO/actions/runners/generate-jitconfig" \
   -d "{\"name\":\"$(hostname)-$(date +%s)\",\"runner_group_id\":1,\"labels\":$labels}" \
-  | jq -r '.encoded_jit_config // empty')
+  | jq -r '.encoded_jit_config // empty') \
+  || fail "generate-jitconfig failed (HTTP error above; 409 = Actions disabled on the repo, 403 = App permission update not approved, 404 = no repo access)"
 [ -n "$jit" ] || fail "generate-jitconfig returned no config (App missing repo Administration:write, or the permission update not yet approved on the installation?)"
 
 printf '%s' "$jit" > "$OUT"
