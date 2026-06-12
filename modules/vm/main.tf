@@ -50,8 +50,9 @@ resource "proxmox_virtual_environment_vm" "this" {
   }
 
   network_device {
-    bridge = var.bridge
-    model  = "virtio"
+    bridge   = var.bridge
+    model    = "virtio"
+    firewall = var.nic_firewall
   }
 
   dynamic "network_device" {

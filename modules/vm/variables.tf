@@ -140,3 +140,9 @@ variable "extra_networks" {
   }))
   default = []
 }
+
+variable "nic_firewall" {
+  description = "Enable the PVE firewall on the primary NIC. Required on sites with the cluster firewall active (e.g. swift) for VM-level rules/security groups to apply; no-op elsewhere."
+  type        = bool
+  default     = false
+}
