@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Root-stage JIT minting (systemd ExecStartPre=+): authenticate as the
 # GitHub App, mint a single-use JIT runner config, hand it to the runner
 # user via the unit's runtime directory. The App key never becomes
@@ -9,14 +9,18 @@
 # runners would be reachable by every private repo in the org, and custom
 # restricted runner groups need the Team plan). App perm: repo Administration:write.
 #
-# GITHUB_ORG / GITHUB_REPO / GITHUB_APP_CLIENT_ID / RUNNER_LABELS are
-# provided by systemd's EnvironmentFile=/etc/github-runner/runner.env, which
-# applies to every Exec line including this ExecStartPre stage — so no
-# `source` of the env file (which would shell-evaluate secret values).
+# GITHUB_ORG / GITHUB_REPO / GITHUB_APP_CLIENT_ID / RUNNER_LABELS come from a
+# root-only mint.env file, separate from job-facing runner.env. The systemd
+# unit runs this script through env -i so job credentials cannot affect root
+# pre-start behavior via PATH, BASH_ENV, OPENSSL_CONF, etc.
 set -euo pipefail
 
 KEY=/etc/github-runner/app.pem
 OUT=/run/github-runner/jit
+
+set -a
+. /etc/github-runner/mint.env
+set +a
 
 b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
 

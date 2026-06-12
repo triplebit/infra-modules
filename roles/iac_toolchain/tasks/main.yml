@@ -1,7 +1,7 @@
 ---
 - name: Base packages (ansible, age, helpers)
   ansible.builtin.apt:
-    name: [ansible, age, curl, git, jq, unzip, ca-certificates]
+    name: [ansible, age, curl, git, jq, unzip, ca-certificates, apt-transport-https, gnupg]
     state: present
     update_cache: true
 
@@ -11,15 +11,49 @@
   failed_when: false
   changed_when: false
 
-- name: Install OpenTofu (official installer, deb method)
-  ansible.builtin.shell: |
-    set -euo pipefail
-    curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o /tmp/install-opentofu.sh
-    chmod +x /tmp/install-opentofu.sh
-    /tmp/install-opentofu.sh --install-method deb
-    rm /tmp/install-opentofu.sh
-  args:
-    executable: /bin/bash
+- name: OpenTofu apt keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: iac_toolchain_tofu.rc != 0
+
+- name: OpenTofu release key
+  ansible.builtin.get_url:
+    url: https://get.opentofu.org/opentofu.gpg
+    dest: /etc/apt/keyrings/opentofu.gpg
+    owner: root
+    group: root
+    mode: "0644"
+  when: iac_toolchain_tofu.rc != 0
+
+- name: OpenTofu repository key
+  ansible.builtin.get_url:
+    url: https://packages.opentofu.org/opentofu/tofu/gpgkey
+    dest: /etc/apt/keyrings/opentofu-repo.asc
+    owner: root
+    group: root
+    mode: "0644"
+  when: iac_toolchain_tofu.rc != 0
+
+- name: OpenTofu apt source
+  ansible.builtin.copy:
+    content: |
+      deb [signed-by=/etc/apt/keyrings/opentofu.gpg,/etc/apt/keyrings/opentofu-repo.asc] https://packages.opentofu.org/opentofu/tofu/any/ any main
+      deb-src [signed-by=/etc/apt/keyrings/opentofu.gpg,/etc/apt/keyrings/opentofu-repo.asc] https://packages.opentofu.org/opentofu/tofu/any/ any main
+    dest: /etc/apt/sources.list.d/opentofu.list
+    owner: root
+    group: root
+    mode: "0644"
+  when: iac_toolchain_tofu.rc != 0
+
+- name: Install OpenTofu from signed apt repository
+  ansible.builtin.apt:
+    name: tofu
+    state: present
+    update_cache: true
   when: iac_toolchain_tofu.rc != 0
 
 - name: Check for sops
@@ -28,9 +62,14 @@
   failed_when: false
   changed_when: false
 
-- name: Install sops (pinned release deb)
-  ansible.builtin.apt:
-    deb: "https://github.com/getsops/sops/releases/download/v{{ iac_toolchain_sops_version }}/sops_{{ iac_toolchain_sops_version }}_amd64.deb"
+- name: Install sops (checksum-pinned release binary)
+  ansible.builtin.get_url:
+    url: "https://github.com/getsops/sops/releases/download/v{{ iac_toolchain_sops_version }}/sops-v{{ iac_toolchain_sops_version }}.linux.amd64"
+    dest: /usr/local/bin/sops
+    checksum: "sha256:{{ iac_toolchain_sops_sha256 }}"
+    owner: root
+    group: root
+    mode: "0755"
   when: >-
     iac_toolchain_sops.rc != 0 or
     iac_toolchain_sops_version not in (iac_toolchain_sops.stdout | default(''))

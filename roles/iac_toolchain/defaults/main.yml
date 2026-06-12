@@ -5,3 +5,4 @@
 # runs.
 
 iac_toolchain_sops_version: "3.13.1"
+iac_toolchain_sops_sha256: "620a9d7e3352ababeca6908cea24a6e8b14ce89a448ddbd3f94f1ef3398f470a"

@@ -131,5 +131,10 @@ resource "proxmox_virtual_environment_vm" "this" {
     # determines initial placement only; afterwards HA/maintenance moves are
     # never reverted, and VMs are never started/stopped on apply.
     ignore_changes = [started, node_name]
+
+    precondition {
+      condition     = var.pool_id != null || var.allow_unpooled
+      error_message = "pool_id is required for tenant VMs. Set allow_unpooled=true only for explicitly reviewed core platform VMs."
+    }
   }
 }

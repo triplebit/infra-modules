@@ -9,9 +9,15 @@ variable "node" {
 }
 
 variable "pool_id" {
-  description = "Resource pool (tenant boundary). Tenant VMs must set this; core platform VMs (e.g. CI runners) may omit it."
+  description = "Resource pool (tenant boundary). Tenant VMs must set this."
   type        = string
   default     = null
+}
+
+variable "allow_unpooled" {
+  description = "Explicit escape hatch for core platform VMs that must live outside tenant pools."
+  type        = bool
+  default     = false
 }
 
 variable "tags" {

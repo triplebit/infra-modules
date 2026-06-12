@@ -35,6 +35,27 @@
     checksum: "sha256:{{ github_runner_sha256 }}"
     mode: "0644"
 
+- name: Check pristine runner dist version
+  ansible.builtin.stat:
+    path: "{{ github_runner_dist_dir }}/.runner-{{ github_runner_version }}-{{ github_runner_sha256 }}"
+  register: github_runner_dist_marker
+
+- name: Clear stale pristine runner dist
+  ansible.builtin.file:
+    path: "{{ github_runner_dist_dir }}"
+    state: absent
+  when: not github_runner_dist_marker.stat.exists
+  notify: Restart github-runner
+
+- name: Pristine runner dist directory recreated after version changes
+  ansible.builtin.file:
+    path: "{{ github_runner_dist_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: not github_runner_dist_marker.stat.exists
+
 - name: Unpack runner into the PRISTINE dist (root-owned)
   ansible.builtin.unarchive:
     src: "/tmp/actions-runner-{{ github_runner_version }}.tar.gz"
@@ -42,7 +63,17 @@
     remote_src: true
     owner: root
     group: root
-    creates: "{{ github_runner_dist_dir }}/run.sh"
+  when: not github_runner_dist_marker.stat.exists
+  notify: Restart github-runner
+
+- name: Mark pristine runner dist version
+  ansible.builtin.copy:
+    content: "{{ github_runner_version }} {{ github_runner_sha256 }}\n"
+    dest: "{{ github_runner_dist_dir }}/.runner-{{ github_runner_version }}-{{ github_runner_sha256 }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: not github_runner_dist_marker.stat.exists
   notify: Restart github-runner
 
 - name: Per-job redeploy script (root; wipes + restores binaries each start)
@@ -82,10 +113,20 @@
   no_log: true
   notify: Restart github-runner
 
-- name: Runner environment (minting params + job-facing deploy credentials)
+- name: Runner environment (job-facing deploy credentials)
   ansible.builtin.template:
     src: runner.env.j2
     dest: /etc/github-runner/runner.env
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Restart github-runner
+
+- name: Runner mint environment (root-only registration parameters)
+  ansible.builtin.template:
+    src: mint.env.j2
+    dest: /etc/github-runner/mint.env
     owner: root
     group: root
     mode: "0600"
